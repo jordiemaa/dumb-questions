@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dumb Questions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#141416; --bg2:#1b1b20; --line:#2b2b33; --ink:#F4F1EC; --mute:#8d8c93; --faint:#55545c;
+    --pink:#FF2E7E; --R:100px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:'Bricolage Grotesque',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;cursor:pointer}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+
+  #app{height:100%;display:flex;flex-direction:column}
+  header{display:flex;justify-content:space-between;align-items:center;padding:22px 28px}
+  .mark{font-weight:800;font-size:20px;letter-spacing:-.025em;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+  .mark .dot{color:var(--pink)}
+  .meta{font-size:12px;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:0 18px 28px;min-height:0}
+  .label{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--mute);height:16px;transition:color .3s}
+  .landed .label{color:var(--pink)}
+
+  .reel{position:relative;width:min(840px,100%);height:calc(var(--R) * 5);cursor:pointer;
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%);
+            mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%)}
+  .frame{position:absolute;left:0;right:0;top:calc(50% - var(--R) / 2);height:var(--R);
+    border-radius:20px;border:1.5px solid rgba(255,46,126,.5);background:rgba(255,46,126,.04);
+    transition:background .25s, border-color .25s, box-shadow .4s}
+  .landed .frame{background:var(--pink);border-color:var(--pink);box-shadow:0 0 70px rgba(255,46,126,.35);animation:thunk .5s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes thunk{0%{transform:scale(.97)}100%{transform:scale(1)}}
+  .strip{position:absolute;inset:0}
+  .row{position:absolute;left:0;right:0;top:calc(50% - var(--R) / 2);height:var(--R);
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    padding:0 clamp(18px,4vw,46px);will-change:transform,opacity}
+  .row span{font-size:clamp(19px,3.3vw,34px);font-weight:600;line-height:1.12;letter-spacing:-.018em;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-wrap:balance}
+  .landed .row{transition:opacity .5s ease,color .3s}
+  .landed .row.center{color:var(--bg)}
+  .landed .row.center span{font-weight:750}
+
+  .timer{display:none;flex-direction:column;align-items:center;gap:4px}
+  .timer.on{display:flex}
+  .tlabel{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--pink)}
+  .tval{font-size:44px;font-weight:600;letter-spacing:-.02em;line-height:1}
+  .timer.done .tval{color:var(--pink);animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .tstop{background:none;border:none;color:var(--faint);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:4px}
+  .tstop:hover{color:var(--ink)}
+
+  .controls{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .spin{background:var(--pink);color:var(--bg);border:none;border-radius:999px;padding:16px 52px;
+    font-size:19px;font-weight:750;letter-spacing:-.01em;box-shadow:0 12px 34px rgba(255,46,126,.25);
+    transition:transform .12s, opacity .2s}
+  .spin:hover{transform:translateY(-1px)}
+  .spin:active{transform:scale(.97)}
+  .spinning .spin{opacity:.45;pointer-events:none}
+  .timers{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .ghost{background:transparent;border:1px solid var(--line);color:var(--mute);border-radius:999px;
+    padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;transition:color .2s,border-color .2s}
+  .ghost:hover{color:var(--ink);border-color:#44444d}
+  .hint{font-size:11px;color:var(--faint);letter-spacing:.04em}
+
+  .rig-dot{position:fixed;right:14px;bottom:14px;width:5px;height:5px;border-radius:50%;background:var(--pink);opacity:0;transition:opacity .3s}
+  .rig-dot.on{opacity:.35}
+
+  .clean .controls,.clean .rig-dot{display:none}
+  .clean, .clean .reel{cursor:none}
+
+  /* rig panel */
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .25s}
+  .backdrop.open{opacity:1;pointer-events:auto}
+  .rig{position:fixed;top:0;right:0;bottom:0;width:min(430px,100%);background:var(--bg2);border-left:1px solid var(--line);
+    transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);overflow-y:auto;padding:22px 22px 40px;cursor:auto}
+  .rig.open{transform:none}
+  .rig-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+  .rig-title{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .rig-sub{font-size:11px;color:var(--mute);margin-top:2px}
+  .x{background:none;border:none;font-size:26px;line-height:1;color:var(--mute);padding:0 4px}
+  .x:hover{color:var(--ink)}
+  .rig section{border-top:1px solid var(--line);padding:18px 0}
+  .rig h3{margin:0 0 12px;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+  .rig input[type=text],.rig textarea{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:12px;
+    padding:11px 13px;font:inherit;font-size:14px;outline:none}
+  .rig input[type=text]:focus,.rig textarea:focus{border-color:var(--pink)}
+  .rig textarea{resize:vertical;line-height:1.45;font-size:13px}
+  .inrow{display:flex;gap:8px;margin-top:10px}
+  .inrow input{flex:1}
+  .pinkbtn{background:var(--pink);color:var(--bg);border:none;border-radius:999px;padding:9px 16px;font-weight:700;font-size:13px;white-space:nowrap}
+  #queueList{list-style:none;margin:0 0 10px;padding:0;counter-reset:q}
+  #queueList li{counter-increment:q;display:flex;align-items:center;gap:10px;padding:9px 10px 9px 12px;background:var(--bg);border:1px solid var(--line);border-radius:12px;margin-bottom:6px;font-size:14px;line-height:1.3}
+  #queueList li::before{content:counter(q);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink);min-width:12px}
+  #queueList li span{flex:1}
+  #queueList li button{background:none;border:none;color:var(--faint);font-size:18px;line-height:1;padding:0 2px}
+  #queueList li button:hover{color:var(--ink)}
+  .empty{font-size:13px;color:var(--faint);margin-bottom:10px}
+  .picklist{margin-top:10px;max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:12px}
+  .pick{display:flex;width:100%;gap:10px;align-items:center;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:10px 12px;font-size:13.5px;line-height:1.3;color:var(--ink)}
+  .pick:last-child{border-bottom:none}
+  .pick span{flex:1}
+  .pick em{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--faint);white-space:nowrap}
+  .pick:hover{background:rgba(255,46,126,.07)}
+  .pick:hover em{color:var(--pink)}
+  .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .seg button{flex:1;background:none;border:none;border-radius:999px;padding:8px 6px;font-size:13px;color:var(--mute)}
+  .seg button.on{background:var(--pink);color:var(--bg);font-weight:700}
+  .tog{display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:10px;cursor:pointer}
+  .tog input{accent-color:var(--pink);width:16px;height:16px}
+  .keys{font-size:11px;color:var(--faint);line-height:1.8}
+  .note{font-size:12px;color:var(--faint);margin-top:8px}
+
+  /* lock dialog */
+  .lock{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s;cursor:auto}
+  .lock.open{opacity:1;pointer-events:auto}
+  .lock-card{width:min(340px,100%);background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:22px}
+  .lock-card .rig-title{font-size:20px;margin-bottom:4px}
+  .lock-card input{width:100%;margin-top:14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);
+    border-radius:12px;padding:12px 13px;font:inherit;font-size:15px;outline:none}
+  .lock-card input:focus{border-color:var(--pink)}
+  .lock-card .inrow{justify-content:flex-end}
+  .lock-err{font-size:12px;color:var(--pink);height:16px;margin-top:8px}
+  .shake{animation:shake .35s}
+  @keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+
+  @media (max-width:560px){
+    header{padding:18px 18px}
+    .mark{font-size:17px}
+    .spin{padding:15px 44px}
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="mblur" x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur id="blurNode" stdDeviation="0 0"/></filter>
+</svg>
+
+<div id="app">
+  <header>
+    <div class="mark" id="mark">dumb questions<span class="dot">.</span></div>
+    <div class="meta mono" id="meta"></div>
+  </header>
+  <main>
+    <div class="label mono" id="label">press spin</div>
+    <div class="reel" id="reel">
+      <div class="frame" id="frame"></div>
+      <div class="strip" id="strip"></div>
+    </div>
+    <div class="timer" id="timer">
+      <span class="tlabel mono" id="tLabel"></span>
+      <span class="tval mono" id="tVal">0:00</span>
+      <button class="tstop mono" id="tStop">stop timer</button>
+    </div>
+    <div class="controls">
+      <button class="spin" id="spinBtn">Spin</button>
+      <div class="timers">
+        <button class="ghost" data-min="15" data-label="Research">research 15:00</button>
+        <button class="ghost" data-min="30" data-label="Research">research 30:00</button>
+        <button class="ghost" data-min="1" data-label="Talk">talk 1:00</button>
+      </div>
+      <div class="hint mono">space to spin · h to hide controls</div>
+    </div>
+  </main>
+  <div class="rig-dot" id="rigDot"></div>
+</div>
+
+<div class="lock" id="lock">
+  <form class="lock-card" id="lockForm" autocomplete="off">
+    <div class="rig-title">Locked</div>
+    <div class="rig-sub mono">enter the passcode</div>
+    <input type="password" id="lockInput" placeholder="Passcode" aria-label="Passcode">
+    <div class="lock-err mono" id="lockErr"></div>
+    <div class="inrow">
+      <button type="button" class="ghost" id="lockCancel">cancel</button>
+      <button type="submit" class="pinkbtn">Unlock</button>
+    </div>
+  </form>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<aside class="rig" id="rig" aria-hidden="true">
+  <div class="rig-head">
+    <div>
+      <div class="rig-title">Rig mode</div>
+      <div class="rig-sub mono">script your next landings</div>
+    </div>
+    <button class="x" id="rigClose" aria-label="Close">&times;</button>
+  </div>
+
+  <section>
+    <h3>Up next (rigged)</h3>
+    <ol id="queueList"></ol>
+    <div class="empty" id="queueEmpty">Nothing rigged. Spins are random.</div>
+    <button class="ghost" id="queueClear">clear queue</button>
+  </section>
+
+  <section>
+    <h3>Land on a custom question</h3>
+    <div class="inrow" style="margin-top:0">
+      <input type="text" id="customQ" placeholder="Would a Victorian child survive...">
+      <button class="pinkbtn" id="customAdd">Rig it</button>
+    </div>
+    <div class="note">Custom questions get added to your list so they show up in the reel.</div>
+  </section>
+
+  <section>
+    <h3>Rig from your list</h3>
+    <input type="text" id="filterQ" placeholder="Search questions">
+    <div class="picklist" id="pickList"></div>
+  </section>
+
+  <section>
+    <h3>Spin length</h3>
+    <div class="seg" id="durSeg">
+      <button data-d="3">Hook 3s</button>
+      <button data-d="5">Normal 5s</button>
+      <button data-d="8">Long 8s</button>
+    </div>
+  </section>
+
+  <section>
+    <h3>Recording</h3>
+    <label class="tog"><input type="checkbox" id="cleanTog"> Clean mode (hides controls and cursor)</label>
+    <label class="tog"><input type="checkbox" id="soundTog"> Tick and ding sounds</label>
+    <button class="ghost" id="fsBtn">fullscreen</button>
+    <button class="ghost" id="lockBtn">lock this device</button>
+  </section>
+
+  <section>
+    <h3>Edit questions (one per line)</h3>
+    <textarea id="editQ" rows="10"></textarea>
+    <div class="inrow">
+      <button class="pinkbtn" id="saveQ">Save list</button>
+      <button class="ghost" id="resetQ">reset to defaults</button>
+    </div>
+    <div class="note" id="editNote"></div>
+  </section>
+
+  <section class="keys mono">
+    space spin · h clean mode · shift+r rig mode · m sound · f fullscreen · esc close<br>
+    on a phone: hold the logo for 2 seconds to open rig mode, tap the reel to spin
+  </section>
+</aside>
+
+<script>
+(function(){
+  const DEFAULTS = [
+    "Would a Victorian child survive a double Crunchwrap Supreme?",
+    "Would a Victorian child survive a pack of Buldak?",
+    "Would a Victorian child survive a can of Monster Energy?",
+    "Would a Victorian child survive a Venti cold brew?",
+    "Could a medieval knight survive a Costco on a Saturday?",
+    "How many geese could I take in a fight?",
+    "Could a raccoon learn to drive a car?",
+    "Would a Roman soldier survive a modern rollercoaster?",
+    "How long could I live inside an IKEA without leaving?",
+    "Could every house cat on Earth take down one elephant?",
+    "How many bananas would it take to give me radiation poisoning?",
+    "Could a caveman figure out an iPhone?",
+    "Would a pirate survive a budget airline flight?",
+    "How many ducks would it take to lift a grown man?",
+    "If I shrank to ant size, could I beat an ant in a fight?",
+    "Could I outrun a T. rex?",
+    "Would a samurai survive a Black Friday sale?",
+    "How long would it take to walk to the moon?",
+    "Could a squirrel survive falling out of a plane?",
+    "Would an ancient Egyptian survive the Hot Ones wings?",
+    "How many lemons would it take to charge my phone?",
+    "How many balloons would it take to lift my house?",
+    "Would a Viking survive a Zumba class?",
+    "Could a toddler beat a goose in a fight?",
+    "How many Krispy Kremes would it take to fuel a marathon?",
+    "Could a medieval peasant survive a day in customer service?",
+    "How many hot dogs could a T. rex eat in one sitting?",
+    "Would a 1920s gangster survive a TikTok Shop live?",
+    "How many seagulls would it take to carry me away?",
+    "Could Shakespeare survive a group chat?"
+  ];
+
+  const KEY = "dumb-questions-reel-v1";
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify({questions, queue, settings:{dur:settings.dur, sound:settings.sound}})); } catch(e){} }
+
+  const stored = load();
+  let questions = (Array.isArray(stored.questions) && stored.questions.length) ? stored.questions : DEFAULTS.slice();
+  let queue = Array.isArray(stored.queue) ? stored.queue : [];
+  const settings = Object.assign({dur:5, sound:true}, stored.settings || {});
+  settings.clean = false;
+
+  const $ = id => document.getElementById(id);
+  const app=$("app"), strip=$("strip"), reel=$("reel"), frameEl=$("frame"), blurNode=$("blurNode");
+  const labelEl=$("label"), metaEl=$("meta"), spinBtn=$("spinBtn"), rigDot=$("rigDot");
+  const mod = (a,n) => ((a % n) + n) % n;
+
+  // ---------- reel ----------
+  let R = 100;
+  const KS = [-3,-2,-1,0,1,2,3];
+  let rows = [];
+  let pos = Math.floor(Math.random() * questions.length);
+  let lastBase = null, spinning = false, landed = false, history = [];
+
+  function sizeReel(){
+    R = Math.round(Math.max(80, Math.min(128, window.innerHeight * 0.115)));
+    document.documentElement.style.setProperty("--R", R + "px");
+    render(0);
+  }
+
+  function buildRows(){
+    strip.innerHTML = "";
+    rows = KS.map(k => {
+      const el = document.createElement("div"); el.className = "row";
+      const span = document.createElement("span"); el.appendChild(span);
+      strip.appendChild(el);
+      return {k, el, span};
+    });
+    lastBase = null;
+  }
+
+  function render(vel){
+    const N = questions.length;
+    const base = Math.floor(pos), frac = pos - base;
+    if (base !== lastBase){
+      rows.forEach(r => { r.span.textContent = questions[mod(base + r.k, N)]; });
+      lastBase = base;
+    }
+    rows.forEach(r => {
+      const d = r.k - frac, ad = Math.abs(d);
+      const s = 1 - Math.min(ad, 3) * 0.085;
+      const o = landed ? (ad < 0.5 ? 1 : 0.1) : Math.max(0, 1 - ad * 0.3);
+      r.el.style.transform = "translateY(" + (d * R).toFixed(2) + "px) scale(" + s.toFixed(3) + ")";
+      r.el.style.opacity = o.toFixed(3);
+      r.el.classList.toggle("center", ad < 0.5);
+    });
+    const b = Math.min(14, vel * R / 60 * 0.55);
+    if (b > 0.25){ blurNode.setAttribute("stdDeviation", "0 " + b.toFixed(2)); strip.style.filter = "url(#mblur)"; }
+    else { strip.style.filter = "none"; }
+  }
+
+  function pickRandom(){
+    const N = questions.length;
+    if (N < 2) return 0;
+    const cur = mod(Math.round(pos), N);
+    const avoid = new Set([cur].concat(history.slice(-Math.min(8, N - 2))));
+    let pool = [];
+    for (let i = 0; i < N; i++) if (!avoid.has(i)) pool.push(i);
+    if (!pool.length) for (let i = 0; i < N; i++) if (i !== cur) pool.push(i);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function spin(){
+    if (spinning || !questions.length) return;
+    ensureAudio();
+    pos = mod(Math.round(pos), questions.length); lastBase = null;
+    landed = false;
+    app.classList.remove("landed"); app.classList.add("spinning");
+    labelEl.textContent = "spinning";
+
+    let target;
+    if (queue.length){
+      const text = queue.shift();
+      let i = questions.indexOf(text);
+      if (i < 0){ questions.splice(pos + 1 + Math.floor(Math.random() * 3), 0, text); i = questions.indexOf(text); lastBase = null; }
+      target = i;
+      save(); renderRig();
+    } else {
+      target = pickRandom();
+    }
+
+    const N = questions.length;
+    const cur = mod(Math.round(pos), N);
+    const durMs = settings.dur * 1000;
+    const minRows = Math.round(settings.dur * 11);
+    const dist = minRows + mod(target - (cur + minRows), N);
+    const start = Math.round(pos);
+    const t0 = performance.now();
+    let lastTick = Math.floor(start + 0.5);
+    spinning = true;
+
+    function step(now){
+      const x = Math.min(1, (now - t0) / durMs);
+      const e = 1 - Math.pow(1 - x, 3);
+      pos = start + dist * e;
+      const vel = x < 1 ? dist * 3 * Math.pow(1 - x, 2) / settings.dur : 0;
+      const c = Math.floor(pos + 0.5);
+      if (c !== lastTick){ lastTick = c; tick(); }
+      render(vel);
+      if (x < 1) requestAnimationFrame(step); else land(target);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function land(target){
+    spinning = false; landed = true;
+    pos = target; lastBase = null;
+    history.push(target); if (history.length > 20) history.shift();
+    app.classList.remove("spinning");
+    void frameEl.offsetWidth;
+    app.classList.add("landed");
+    labelEl.textContent = "today's dumb question";
+    metaEl.textContent = "No. " + String(target + 1).padStart(2, "0") + " / " + questions.length;
+    render(0);
+    ding();
+  }
+
+  function setIdleMeta(){ metaEl.textContent = questions.length + " questions"; }
+
+  // ---------- sound ----------
+  let ac = null, lastTickT = 0;
+  function ensureAudio(){
+    if (!settings.sound) return;
+    try {
+      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === "suspended") ac.resume();
+    } catch(e){}
+  }
+  function blip(freq, dur, type, vol, when){
+    if (!ac || !settings.sound) return;
+    try {
+      const t = ac.currentTime + (when || 0);
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + dur + 0.03);
+    } catch(e){}
+  }
+  function tick(){ const n = performance.now(); if (n - lastTickT < 28) return; lastTickT = n; blip(2100, 0.025, "square", 0.03); }
+  function ding(){ blip(880, 0.9, "sine", 0.18); blip(1318.5, 1.1, "sine", 0.12, 0.06); blip(1760, 0.7, "triangle", 0.05, 0.12); }
+  function buzz(){ [0, 0.25, 0.5].forEach(w => blip(660, 0.18, "square", 0.07, w)); }
+
+  // ---------- timer ----------
+  const timerEl=$("timer"), tLabel=$("tLabel"), tVal=$("tVal");
+  let tInt = null, tEnd = 0;
+  function startTimer(min, label){
+    ensureAudio();
+    tEnd = Date.now() + min * 60000;
+    tLabel.textContent = label;
+    timerEl.classList.add("on"); timerEl.classList.remove("done");
+    clearInterval(tInt); updTimer(); tInt = setInterval(updTimer, 200);
+  }
+  function updTimer(){
+    const ms = Math.max(0, tEnd - Date.now());
+    const s = Math.ceil(ms / 1000);
+    tVal.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    if (ms <= 0){ clearInterval(tInt); timerEl.classList.add("done"); buzz(); }
+  }
+  function stopTimer(){ clearInterval(tInt); timerEl.classList.remove("on", "done"); }
+  document.querySelectorAll("[data-min]").forEach(b => b.addEventListener("click", () => { startTimer(+b.dataset.min, b.dataset.label); b.blur(); }));
+  $("tStop").addEventListener("click", stopTimer);
+
+  // ---------- rig panel ----------
+  const rig=$("rig"), backdrop=$("backdrop");
+  let rigOpen = false;
+
+  // ---------- passcode lock ----------
+  // SHA-256 of the passcode. To change it, swap this hash.
+  const PASS_HASH = "913bd193848b5a46d5417cf91249bc806f61b40c7d0c06719152dea1e2344449";
+  const UNLOCK_KEY = "dumb-questions-unlocked";
+  const lockEl=$("lock"), lockInput=$("lockInput"), lockErr=$("lockErr"), lockCard=$("lockForm");
+  let lockOpen = false;
+  function isUnlocked(){ try { return localStorage.getItem(UNLOCK_KEY) === PASS_HASH; } catch(e){ return sessionUnlocked; } }
+  let sessionUnlocked = false;
+  function markUnlocked(v){
+    sessionUnlocked = v;
+    try { v ? localStorage.setItem(UNLOCK_KEY, PASS_HASH) : localStorage.removeItem(UNLOCK_KEY); } catch(e){}
+  }
+  async function sha256(text){
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  function showLock(v){
+    lockOpen = v;
+    lockEl.classList.toggle("open", v);
+    lockErr.textContent = ""; lockInput.value = "";
+    if (v) setTimeout(() => lockInput.focus(), 50); else lockInput.blur();
+  }
+  lockCard.addEventListener("submit", async e => {
+    e.preventDefault();
+    let ok = false;
+    try { ok = (await sha256(lockInput.value.trim())) === PASS_HASH; } catch(err){}
+    if (ok){ markUnlocked(true); showLock(false); openRig(true); }
+    else {
+      lockErr.textContent = "Nope.";
+      lockCard.classList.remove("shake"); void lockCard.offsetWidth; lockCard.classList.add("shake");
+      lockInput.select();
+    }
+  });
+  $("lockCancel").addEventListener("click", () => showLock(false));
+  lockEl.addEventListener("click", e => { if (e.target === lockEl) showLock(false); });
+  lockInput.addEventListener("keydown", e => { if (e.key === "Escape") showLock(false); });
+
+  function requestRig(){
+    if (rigOpen){ openRig(false); return; }
+    if (isUnlocked() || sessionUnlocked) openRig(true); else showLock(true);
+  }
+
+  function openRig(v){
+    rigOpen = v;
+    rig.classList.toggle("open", v); backdrop.classList.toggle("open", v);
+    rig.setAttribute("aria-hidden", v ? "false" : "true");
+    if (v){ renderRig(); $("editQ").value = questions.join("\n"); $("editNote").textContent = ""; }
+  }
+  function esc(s){ return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+  function renderRig(){
+    const ql = $("queueList");
+    ql.innerHTML = queue.map((q, i) => '<li><span>' + esc(q) + '</span><button data-rm="' + i + '" aria-label="Remove">&times;</button></li>').join("");
+    $("queueEmpty").style.display = queue.length ? "none" : "block";
+    $("queueClear").style.display = queue.length ? "inline-block" : "none";
+    rigDot.classList.toggle("on", queue.length > 0);
+    const f = $("filterQ").value.trim().toLowerCase();
+    $("pickList").innerHTML = questions
+      .map((q, i) => ({q, i}))
+      .filter(o => !f || o.q.toLowerCase().includes(f))
+      .map(o => '<button class="pick" data-pick="' + o.i + '"><span>' + esc(o.q) + '</span><em>+ rig</em></button>').join("");
+    document.querySelectorAll("#durSeg button").forEach(b => b.classList.toggle("on", +b.dataset.d === settings.dur));
+    $("cleanTog").checked = settings.clean;
+    $("soundTog").checked = settings.sound;
+  }
+
+  $("queueList").addEventListener("click", e => {
+    const b = e.target.closest("[data-rm]"); if (!b) return;
+    queue.splice(+b.dataset.rm, 1); save(); renderRig();
+  });
+  $("queueClear").addEventListener("click", () => { queue = []; save(); renderRig(); });
+  $("pickList").addEventListener("click", e => {
+    const b = e.target.closest("[data-pick]"); if (!b) return;
+    queue.push(questions[+b.dataset.pick]); save(); renderRig();
+  });
+  $("filterQ").addEventListener("input", renderRig);
+  function addCustom(){
+    const v = $("customQ").value.trim(); if (!v) return;
+    queue.push(v); $("customQ").value = ""; save(); renderRig();
+  }
+  $("customAdd").addEventListener("click", addCustom);
+  $("customQ").addEventListener("keydown", e => { if (e.key === "Enter") addCustom(); });
+  $("durSeg").addEventListener("click", e => {
+    const b = e.target.closest("[data-d]"); if (!b) return;
+    settings.dur = +b.dataset.d; save(); renderRig();
+  });
+  $("cleanTog").addEventListener("change", e => setClean(e.target.checked));
+  $("soundTog").addEventListener("change", e => { settings.sound = e.target.checked; save(); if (settings.sound) ensureAudio(); });
+  $("fsBtn").addEventListener("click", toggleFs);
+  $("lockBtn").addEventListener("click", () => { markUnlocked(false); openRig(false); });
+
+  function applyList(list){
+    questions = list; history = []; landed = false; pos = 0; lastBase = null;
+    app.classList.remove("landed"); labelEl.textContent = "press spin";
+    save(); setIdleMeta(); render(0); renderRig();
+  }
+  $("saveQ").addEventListener("click", () => {
+    const list = $("editQ").value.split("\n").map(s => s.trim()).filter(Boolean);
+    if (!list.length){ $("editNote").textContent = "Add at least one question."; return; }
+    if (spinning) return;
+    applyList(list); $("editNote").textContent = "Saved " + list.length + " questions.";
+  });
+  let resetArmed = false;
+  $("resetQ").addEventListener("click", e => {
+    if (spinning) return;
+    if (!resetArmed){ resetArmed = true; e.target.textContent = "click again to reset"; setTimeout(() => { resetArmed = false; e.target.textContent = "reset to defaults"; }, 2500); return; }
+    resetArmed = false; e.target.textContent = "reset to defaults";
+    applyList(DEFAULTS.slice()); $("editQ").value = questions.join("\n"); $("editNote").textContent = "Back to the default list.";
+  });
+  $("rigClose").addEventListener("click", () => openRig(false));
+  backdrop.addEventListener("click", () => openRig(false));
+
+  // hold the logo for 2 seconds to open rig (for phones)
+  let holdT = null;
+  const markEl = $("mark");
+  const cancelHold = () => { clearTimeout(holdT); holdT = null; };
+  markEl.addEventListener("pointerdown", () => { cancelHold(); holdT = setTimeout(() => { holdT = null; requestRig(); }, 2000); });
+  ["pointerup","pointerleave","pointercancel"].forEach(ev => markEl.addEventListener(ev, cancelHold));
+  markEl.addEventListener("contextmenu", e => e.preventDefault());
+
+  function setClean(v){ settings.clean = v; app.classList.toggle("clean", v); $("cleanTog").checked = v; }
+  function toggleFs(){
+    try {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch(e){}
+  }
+
+  // ---------- input ----------
+  spinBtn.addEventListener("click", () => { spin(); spinBtn.blur(); });
+  reel.addEventListener("click", spin);
+  document.addEventListener("keydown", e => {
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea"){ if (e.key === "Escape") e.target.blur(); return; }
+    const k = e.key.toLowerCase();
+    if (e.code === "Space" || k === "enter"){
+      if (rigOpen || lockOpen) return;
+      e.preventDefault(); spin();
+    }
+    else if (k === "escape"){ openRig(false); showLock(false); }
+    else if (e.code === "KeyR" && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey){ e.preventDefault(); requestRig(); }
+    else if (k === "h") setClean(!settings.clean);
+    else if (k === "m"){ settings.sound = !settings.sound; save(); if (settings.sound) ensureAudio(); renderRig(); }
+    else if (k === "f") toggleFs();
+  });
+  window.addEventListener("resize", sizeReel);
+
+  // ---------- init ----------
+  buildRows();
+  sizeReel();
+  setIdleMeta();
+  renderRig();
+})();
+</script>
+</body>
+</html>
